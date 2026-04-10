@@ -411,7 +411,7 @@ def main():
         transforms.Resize(256),
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),
+        transforms.ColorJitter(0.2, 0.2, 0.2),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
@@ -447,7 +447,7 @@ def main():
     # ── Model ─────────────────────────────────────────────────────────────────
     print("\n[2/6] Building model …")
     model = EmbeddingNet(embed_dim=EMBED_DIM).to(device)
-    model = torch.compile(model)  # graph-level fusion — first epoch is slower
+    # model = torch.compile(model)  # disabled: no C compiler in container  # graph-level fusion — first epoch is slower
 
     loss_fn = losses.TripletMarginLoss(margin=MARGIN)
     miner   = miners.TripletMarginMiner(margin=MARGIN, type_of_triplets="semihard")
