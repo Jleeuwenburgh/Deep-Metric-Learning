@@ -3,7 +3,6 @@ Deep Metric Learning — Oxford-IIIT Pet Dataset
 Optimized for NVIDIA H100 (BF16, TF32, large batches, high worker count)
 """
 
-import argparse
 import itertools
 import os
 import random
@@ -31,34 +30,44 @@ import torchvision  # noqa: F401
 from pytorch_metric_learning import losses, miners, samplers
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONFIG — edit these before running
+# ─────────────────────────────────────────────────────────────────────────────
+
+EPOCHS        = 30
+BATCH_SIZE    = 256     # H100 has 80 GB VRAM; 256 is comfortable with BF16
+EMBED_DIM     = 128
+NUM_WORKERS   = 16      # match to your server's CPU core count
+M_PER_CLASS   = 4       # samples per class per mini-batch (MPerClassSampler)
+LR_BACKBONE   = 1e-4
+LR_HEAD       = 1e-3
+MARGIN        = 0.2     # triplet loss margin
+SEED          = 42
+OUT_DIR       = "."     # root for /models and /img output folders
+
+# Breeds withheld entirely for few-shot evaluation (never seen during training)
+HELD_OUT_BREEDS = [
+    "american_bulldog",
+    "american_pit_bull_terrier",  # visually similar to american_bulldog
+    "saint_bernard",
+    "Bengal",
+    "Siamese",
+]
+
+# Breeds highlighted in the zoomed UMAP plot
+FOCUS_BREEDS = [
+    "yorkshire_terrier",
+    "scottish_terrier",
+    "wheaten_terrier",
+    "staffordshire_bull_terrier",
+    "miniature_pinscher",
+]
+
 # ── H100-specific global flags ────────────────────────────────────────────────
 # TF32 gives near-FP32 accuracy at ~3× the throughput on Ampere/Hopper
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.benchmark = True  # auto-tune conv kernels for fixed input shapes
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CLI
-# ─────────────────────────────────────────────────────────────────────────────
-
-def parse_args():
-    p = argparse.ArgumentParser(description="Deep Metric Learning — Pet Breeds")
-    p.add_argument("--epochs",     type=int,   default=30)
-    p.add_argument("--batch-size", type=int,   default=256,  # H100 has 80 GB — use it
-                   help="Per-GPU batch size")
-    p.add_argument("--embed-dim",  type=int,   default=128)
-    p.add_argument("--workers",    type=int,   default=16,   # H100 nodes ship with many cores
-                   help="DataLoader worker processes")
-    p.add_argument("--lr-backbone",type=float, default=1e-4)
-    p.add_argument("--lr-head",    type=float, default=1e-3)
-    p.add_argument("--margin",     type=float, default=0.2)
-    p.add_argument("--m-per-class",type=int,   default=4,
-                   help="Samples per class in each mini-batch (MPerClassSampler)")
-    p.add_argument("--seed",       type=int,   default=42)
-    p.add_argument("--out",        type=str,   default=".",
-                   help="Output directory for checkpoints and figures")
-    return p.parse_args()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -353,11 +362,9 @@ def extract_embeddings(model, loader, device):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main():
-    args = parse_args()
-
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
@@ -365,8 +372,8 @@ def main():
         print(f"  GPU : {torch.cuda.get_device_name(0)}")
         print(f"  VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
-    os.makedirs(os.path.join(args.out, "models"), exist_ok=True)
-    os.makedirs(os.path.join(args.out, "img"),    exist_ok=True)
+    os.makedirs(os.path.join(OUT_DIR, "models"), exist_ok=True)
+    os.makedirs(os.path.join(OUT_DIR, "img"),    exist_ok=True)
 
     # ── Data ──────────────────────────────────────────────────────────────────
     print("\n[1/6] Loading dataset …")
@@ -380,29 +387,26 @@ def main():
     data = PetDataset(imgdir, classes, speciesdict)
     print(f"  Total images: {len(data)}, breeds: {len(classes)}")
 
-    # Held-out breeds for few-shot evaluation
-    held_out = ["american_bulldog", "american_pit_bull_terrier",
-                "saint_bernard", "Bengal", "Siamese"]
-    held_out_ids = [idx for b in held_out for idx in data.breeddict[b]]
+    held_out_ids = [idx for b in HELD_OUT_BREEDS for idx in data.breeddict[b]]
     held_out_set = torch.utils.data.Subset(data, held_out_ids)
 
     remaining_ids    = [i for i in range(len(data)) if i not in set(held_out_ids)]
     remaining_labels = [data.samples[i][1] for i in remaining_ids]
 
     train_idx, val_idx = train_test_split(
-        remaining_ids, test_size=0.2, stratify=remaining_labels, random_state=args.seed
+        remaining_ids, test_size=0.2, stratify=remaining_labels, random_state=SEED
     )
     val_idx, test_idx = train_test_split(
         val_idx, test_size=0.5,
         stratify=[data.samples[i][1] for i in val_idx],
-        random_state=args.seed,
+        random_state=SEED,
     )
     train_set = torch.utils.data.Subset(data, train_idx)
     val_set   = torch.utils.data.Subset(data, val_idx)
     test_set  = torch.utils.data.Subset(data, test_idx)
-    print(f"  Split → train: {len(train_set)}, val: {len(val_set)}, test: {len(test_set)}, held-out: {len(held_out_set)}")
+    print(f"  Split → train: {len(train_set)}, val: {len(val_set)}, "
+          f"test: {len(test_set)}, held-out: {len(held_out_set)}")
 
-    # Transforms
     train_transform = transforms.Compose([
         transforms.Resize(256),
         transforms.RandomResizedCrop(224),
@@ -421,41 +425,38 @@ def main():
     train_ds = TransformSubset(train_set, train_transform)
     val_ds   = TransformSubset(val_set,   val_transform)
     test_ds  = TransformSubset(test_set,  val_transform)
-
     train_labels = [data.samples[i][1] for i in train_set.indices]
 
     loader_kwargs = dict(
-        num_workers=args.workers,
-        pin_memory=True,           # async CPU→GPU transfers
-        persistent_workers=True,   # keep workers alive between epochs
+        num_workers=NUM_WORKERS,
+        pin_memory=True,          # async CPU→GPU transfers
+        persistent_workers=True,  # keep workers alive between epochs
     )
-    sampler = samplers.MPerClassSampler(train_labels, m=args.m_per_class,
-                                        batch_size=args.batch_size)
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size,
+    sampler      = samplers.MPerClassSampler(train_labels, m=M_PER_CLASS,
+                                             batch_size=BATCH_SIZE)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE,
                               sampler=sampler, **loader_kwargs)
-    val_loader   = DataLoader(val_ds,   batch_size=args.batch_size,
+    val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE,
                               shuffle=False, **loader_kwargs)
-    test_loader  = DataLoader(test_ds,  batch_size=args.batch_size,
+    test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE,
                               shuffle=False, **loader_kwargs)
 
     plot_class_distribution(train_set, val_set, test_set,
-                            data, classes, classes_inv, args.out)
+                            data, classes, classes_inv, OUT_DIR)
 
     # ── Model ─────────────────────────────────────────────────────────────────
     print("\n[2/6] Building model …")
-    model = EmbeddingNet(embed_dim=args.embed_dim).to(device)
-    model = torch.compile(model)   # graph-level fusion — first epoch is slower
+    model = EmbeddingNet(embed_dim=EMBED_DIM).to(device)
+    model = torch.compile(model)  # graph-level fusion — first epoch is slower
 
-    loss_fn = losses.TripletMarginLoss(margin=args.margin)
-    miner   = miners.TripletMarginMiner(margin=args.margin, type_of_triplets="semihard")
+    loss_fn = losses.TripletMarginLoss(margin=MARGIN)
+    miner   = miners.TripletMarginMiner(margin=MARGIN, type_of_triplets="semihard")
 
     optimizer = torch.optim.Adam([
-        {"params": model.encoder.parameters(),   "lr": args.lr_backbone},
-        {"params": model.projector.parameters(), "lr": args.lr_head},
+        {"params": model.encoder.parameters(),   "lr": LR_BACKBONE},
+        {"params": model.projector.parameters(), "lr": LR_HEAD},
     ])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=args.epochs
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
     # BF16 is the preferred dtype on H100 — wider dynamic range than FP16,
     # no loss scaling needed, hardware-native on Hopper.
@@ -464,25 +465,22 @@ def main():
     scaler = GradScaler(device=device, enabled=(dtype == torch.float16))
 
     # ── Training loop ─────────────────────────────────────────────────────────
-    print(f"\n[3/6] Training for {args.epochs} epochs …")
+    print(f"\n[3/6] Training for {EPOCHS} epochs …")
     train_losses, val_losses = [], []
     best_val_loss = float("inf")
 
-    for epoch in range(args.epochs):
+    for epoch in range(EPOCHS):
         t0 = time.time()
 
-        # train
         model.train()
         epoch_loss = 0.0
         for imgs, lbls, _ in train_loader:
-            imgs = imgs.to(device, non_blocking=True)   # non_blocking works because pin_memory=True
+            imgs = imgs.to(device, non_blocking=True)  # non_blocking works because pin_memory=True
             lbls = lbls.to(device, non_blocking=True)
-
             with autocast(device_type="cuda", dtype=dtype):
                 embs       = model(imgs)
                 hard_pairs = miner(embs, lbls)
                 loss       = loss_fn(embs, lbls, hard_pairs)
-
             optimizer.zero_grad(set_to_none=True)  # set_to_none saves a memset vs zero
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -492,7 +490,6 @@ def main():
         scheduler.step()
         train_losses.append(epoch_loss / len(train_loader))
 
-        # validate
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
@@ -507,25 +504,25 @@ def main():
         val_losses.append(val_loss / len(val_loader))
 
         elapsed = time.time() - t0
-        print(f"  Epoch {epoch+1:>3}/{args.epochs}  "
+        print(f"  Epoch {epoch+1:>3}/{EPOCHS}  "
               f"train={train_losses[-1]:.4f}  val={val_losses[-1]:.4f}  "
               f"({elapsed:.1f}s)")
 
         if val_losses[-1] < best_val_loss:
             best_val_loss = val_losses[-1]
-            ckpt = os.path.join(args.out, "models", "best_model.pth")
+            ckpt = os.path.join(OUT_DIR, "models", "best_model.pth")
             torch.save(model.state_dict(), ckpt)
             print(f"    ✓ Checkpoint saved (val={best_val_loss:.4f})")
 
-    plot_loss_curves(train_losses, val_losses, args.out)
+    plot_loss_curves(train_losses, val_losses, OUT_DIR)
 
     # ── Verification ──────────────────────────────────────────────────────────
     print("\n[4/6] Verification (ROC / EER) …")
     embeddings, labels = extract_embeddings(model, test_loader, device)
-    np.save(os.path.join(args.out, "test_embeddings.npy"), embeddings)
-    np.save(os.path.join(args.out, "test_labels.npy"),     labels)
+    np.save(os.path.join(OUT_DIR, "test_embeddings.npy"), embeddings)
+    np.save(os.path.join(OUT_DIR, "test_labels.npy"),     labels)
 
-    pos_pairs, neg_pairs = generate_pairs(labels, seed=args.seed)
+    pos_pairs, neg_pairs = generate_pairs(labels, seed=SEED)
     pair_labels  = np.array([1] * len(pos_pairs) + [0] * len(neg_pairs))
     similarities = np.array([np.dot(embeddings[a], embeddings[b])
                               for a, b in pos_pairs + neg_pairs])
@@ -536,13 +533,13 @@ def main():
     eer_idx     = int(np.nanargmin(np.abs(fpr - fnr)))
     eer         = float(fpr[eer_idx])
     print(f"  AUC: {auc:.4f}  |  EER: {eer:.4f}")
-    plot_roc(fpr, tpr, eer, eer_idx, auc, args.out)
+    plot_roc(fpr, tpr, eer, eer_idx, auc, OUT_DIR)
 
     # ── Retrieval ─────────────────────────────────────────────────────────────
     print("\n[5/6] Retrieval (P@k, R@k) …")
     nn_model = NearestNeighbors(n_neighbors=6, metric="cosine")
     nn_model.fit(embeddings)
-    _, nn_indices = nn_model.kneighbors(embeddings)
+    _, nn_indices    = nn_model.kneighbors(embeddings)
     neighbor_indices = nn_indices[:, 1:]  # drop self (col 0)
 
     for k in [1, 5]:
@@ -556,31 +553,26 @@ def main():
     print("\n[6/6] Few-shot classification …")
     held_loader = DataLoader(
         TransformSubset(held_out_set, val_transform),
-        batch_size=args.batch_size, shuffle=False, **loader_kwargs
+        batch_size=BATCH_SIZE, shuffle=False, **loader_kwargs,
     )
     ho_embs, ho_labels = extract_embeddings(model, held_loader, device)
 
-    acc1, std1 = run_episodes(ho_embs, ho_labels, k_shot=1, seed=args.seed)
-    acc5, std5 = run_episodes(ho_embs, ho_labels, k_shot=5, seed=args.seed)
+    acc1, std1 = run_episodes(ho_embs, ho_labels, k_shot=1, seed=SEED)
+    acc5, std5 = run_episodes(ho_embs, ho_labels, k_shot=5, seed=SEED)
     print(f"  1-shot: {acc1:.3f} ± {std1:.3f}")
     print(f"  5-shot: {acc5:.3f} ± {std5:.3f}")
     print(f"  Random baseline: {1/5:.3f}")
-    plot_few_shot(acc1, std1, acc5, std5, args.out)
+    plot_few_shot(acc1, std1, acc5, std5, OUT_DIR)
 
     # ── UMAP + silhouette ─────────────────────────────────────────────────────
     print("\nComputing UMAP projection …")
-    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, metric="cosine", random_state=args.seed)
+    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, metric="cosine", random_state=SEED)
     emb_2d  = reducer.fit_transform(embeddings)
     sil     = silhouette_score(embeddings, labels, metric="cosine")
     print(f"  Silhouette score: {sil:.4f}")
+    plot_umap(emb_2d, labels, classes_inv, sil, FOCUS_BREEDS, classes, OUT_DIR)
 
-    focus_breeds = [
-        "yorkshire_terrier", "scottish_terrier", "wheaten_terrier",
-        "staffordshire_bull_terrier", "miniature_pinscher",
-    ]
-    plot_umap(emb_2d, labels, classes_inv, sil, focus_breeds, classes, args.out)
-
-    print("\nDone. All outputs written to:", os.path.abspath(args.out))
+    print("\nDone. All outputs written to:", os.path.abspath(OUT_DIR))
 
 
 if __name__ == "__main__":
