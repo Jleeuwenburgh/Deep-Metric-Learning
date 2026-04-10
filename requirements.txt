@@ -1,0 +1,27 @@
+# ── PyTorch (CUDA 12.4 build) ─────────────────────────────────────────────────
+# Install with the PyTorch index, not PyPI:
+#   pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu124
+torch==2.4.0
+torchvision==0.19.0
+
+# ── Metric learning ───────────────────────────────────────────────────────────
+pytorch-metric-learning
+
+# ── Data & ML utilities ───────────────────────────────────────────────────────
+numpy
+scikit-learn
+Pillow
+kagglehub
+
+# ── Dimensionality reduction ──────────────────────────────────────────────────
+umap-learn
+
+# ── Visualisation ─────────────────────────────────────────────────────────────
+matplotlib
+seaborn
+
+# ── Grad-CAM (bonus) ──────────────────────────────────────────────────────────
+grad-cam
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+pandas
