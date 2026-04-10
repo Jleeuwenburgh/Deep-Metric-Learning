@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assessment 2 — Deep Metric Learning Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f8f5f0;
+  --surface: #ffffff;
+  --surface2: #fcfaf7;
+  --border: #e2dbd1;
+  --border-light: #ece6dd;
+  --text: #2e2a25;
+  --text-dim: #8a827a;
+  --text-mid: #5e564e;
+  --accent: #c4622a;
+  --accent-light: #c4622a10;
+  --accent-bg: #faf0e8;
+  --green: #4a9e4a;
+  --green-light: #4a9e4a12;
+  --blue: #3d7ec7;
+  --blue-light: #3d7ec712;
+  --report-bg: #f0ecf8;
+  --report-border: #c0b0dc;
+  --report-text: #503d80;
+  --shadow: 0 1px 8px rgba(80,60,30,0.06);
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Source Sans 3', sans-serif;
+  --serif: 'Source Serif 4', serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.7;font-size:15px}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.sidebar{
+  position:fixed;top:0;left:0;width:260px;height:100vh;
+  background:var(--surface);border-right:1px solid var(--border-light);
+  padding:28px 20px;overflow-y:auto;z-index:100;
+}
+.sidebar h2{font-family:var(--serif);font-size:18px;font-weight:700;margin-bottom:2px}
+.sidebar .subtitle{font-size:12px;color:var(--text-dim);margin-bottom:20px;font-weight:500;letter-spacing:0.02em}
+.progress-bar-wrap{margin:0 0 5px;background:var(--border-light);border-radius:20px;height:6px;overflow:hidden}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),#6ab86a);border-radius:20px;transition:width 0.5s ease;width:0%}
+.progress-text{font-size:11px;color:var(--text-dim);font-weight:600;margin-bottom:18px;font-family:var(--mono)}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:8px;cursor:pointer;
+  font-size:13px;font-weight:600;color:var(--text-dim);
+  transition:all 0.2s;margin-bottom:1px;user-select:none;
+}
+.nav-item:hover{background:var(--accent-light);color:var(--text)}
+.nav-item .dot{
+  width:18px;height:18px;border-radius:50%;border:2px solid var(--border);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:transparent;transition:all 0.3s;background:var(--surface2);
+}
+.nav-item.done .dot{background:var(--green);border-color:var(--green);color:#fff}
+.nav-pts{margin-left:auto;font-size:10px;font-family:var(--mono);opacity:0.5}
+
+.main{margin-left:260px;max-width:800px;padding:40px 44px 120px}
+.hero{
+  margin-bottom:40px;padding:30px 28px;
+  background:var(--surface);border-radius:14px;border:1px solid var(--border-light);
+  box-shadow:var(--shadow);
+}
+.hero h1{font-family:var(--serif);font-size:26px;font-weight:700;margin-bottom:6px}
+.hero p{color:var(--text-mid);font-size:14.5px;max-width:560px;line-height:1.65}
+
+.phase{
+  margin-bottom:24px;border:1px solid var(--border-light);border-radius:12px;
+  background:var(--surface);overflow:hidden;box-shadow:var(--shadow);transition:border-color 0.3s;
+}
+.phase.completed{border-color:var(--green)}
+.phase-header{
+  display:flex;align-items:center;gap:14px;padding:18px 22px;
+  cursor:pointer;user-select:none;transition:background 0.2s;
+}
+.phase-header:hover{background:var(--surface2)}
+.phase-num{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  color:#fff;background:var(--accent);
+  width:26px;height:26px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.phase.completed .phase-num{background:var(--green)}
+.phase-title-wrap{flex:1}
+.phase-title{font-family:var(--serif);font-size:17px;font-weight:700;line-height:1.25}
+.phase-subtitle{font-size:12px;color:var(--text-dim);font-weight:500;margin-top:2px}
+.phase-pts{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-bg);padding:3px 9px;border-radius:6px}
+.phase-toggle{font-size:16px;color:var(--text-dim);transition:transform 0.3s}
+.phase.open .phase-toggle{transform:rotate(180deg)}
+.phase-body{padding:0 22px 22px;display:none}
+.phase.open .phase-body{display:block}
+.phase-body p{margin-bottom:13px}
+.phase-body ul{padding-left:20px;margin-bottom:13px}
+.phase-body li{margin-bottom:5px}
+.phase-body li::marker{color:var(--accent)}
+.phase-body strong{color:var(--accent);font-weight:700}
+.section-label{
+  font-size:12px;text-transform:uppercase;font-weight:700;
+  letter-spacing:0.07em;color:var(--text-mid);margin:22px 0 10px;
+  padding-top:16px;border-top:1px solid var(--border-light);
+}
+.section-label:first-child{border-top:none;margin-top:4px;padding-top:0}
+
+pre{
+  background:#282320;color:#ede6de;border-radius:8px;
+  padding:15px 17px;margin:10px 0 14px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.5px;line-height:1.7;
+}
+.inline-code{
+  background:var(--accent-bg);border:1px solid #e0d0c0;
+  padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--accent);
+}
+.hint-block{
+  margin:10px 0;border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;background:var(--surface2);transition:border-color 0.2s;
+}
+.hint-block:hover{border-color:var(--blue)}
+.hint-trigger{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 15px;cursor:pointer;user-select:none;
+  font-size:13px;font-weight:600;color:var(--blue);transition:background 0.2s;
+}
+.hint-trigger:hover{background:var(--blue-light)}
+.hint-trigger .icon{font-size:13px;transition:transform 0.3s;flex-shrink:0}
+.hint-block.open .hint-trigger .icon{transform:rotate(90deg)}
+.hint-content{display:none;padding:0 15px 15px;font-size:13.5px;color:var(--text-mid);line-height:1.7}
+.hint-block.open .hint-content{display:block}
+
+.report-cue{
+  margin:12px 0;padding:13px 16px;
+  background:var(--report-bg);border:1px solid var(--report-border);
+  border-radius:10px;font-size:13px;color:var(--report-text);
+  display:flex;gap:10px;align-items:flex-start;line-height:1.6;
+}
+.report-cue .rc-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.report-cue strong{font-weight:700}
+
+.check-row{
+  display:flex;align-items:center;gap:10px;margin:3px 0;
+  padding:8px 12px;border-radius:8px;cursor:pointer;transition:background 0.2s;user-select:none;font-size:14px;
+}
+.check-row:hover{background:var(--green-light)}
+.check-row input{display:none}
+.check-box{
+  width:20px;height:20px;border:2px solid var(--border);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.2s;flex-shrink:0;font-size:12px;color:transparent;background:var(--surface2);
+}
+.check-row input:checked+.check-box{background:var(--green);border-color:var(--green);color:#fff}
+.check-label{flex:1;font-weight:500}
+.check-row input:checked~.check-label{color:var(--text-dim);text-decoration:line-through}
+
+.done-banner{
+  display:none;text-align:center;padding:24px;margin:20px 0;
+  background:var(--surface);border-radius:12px;border:1px solid var(--green);
+  box-shadow:0 2px 12px rgba(74,158,74,0.08);
+}
+.done-banner.show{display:block;animation:fadeIn 0.4s ease}
+.done-banner h3{font-family:var(--serif);font-size:18px;font-weight:700}
+.done-banner p{color:var(--text-mid);margin-top:4px;font-size:14px}
+@keyframes fadeIn{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+
+@media(max-width:940px){
+  .sidebar{display:none}
+  .main{margin-left:0;padding:20px 16px 80px}
+  .hero h1{font-size:22px}
+}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<h2>Assessment 2</h2>
+<div class="subtitle">Deep Metric Learning — Computer Vision</div>
+<div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
+<div class="progress-text" id="progressText">0 / 23 done</div>
+<div id="navItems"></div>
+</nav>
+<main class="main" id="main">
+<div class="hero">
+<h1>Deep Metric Learning Guide</h1>
+<p>A step-by-step walkthrough for your assessment. Work through each phase, expand the hints when you need help, and tick things off as you go. The purple boxes flag when to capture something for your report.</p>
+</div>
+<div class="done-banner" id="celebration"><h3>All tasks complete</h3><p>Time to polish the report and submit. Nice work.</p></div>
+</main>
+<script>
+const PHASES=[{id:"p1",num:"01",title:"Data Prep & Metric Learning Pipeline",subtitle:"The foundation — everything else builds on this",pts:"10 pts",sections:[{label:"Getting the Data",content:`<p>Grab the <a href="https://www.kaggle.com/datasets/tanlikesmath/the-oxfordiiit-pet-dataset/data" target="_blank">Oxford-IIIT Pet Dataset</a> from Kaggle (~800 MB, ~7,400 images, 37 breeds). You've seen this dataset in Assessment 1, so it should feel familiar.</p><ul><li>Breed labels are encoded in filenames: <span class="inline-code">Breed_Name_123.jpg</span> — everything before the last <span class="inline-code">_number</span> is the breed.</li><li><strong>Split strategy:</strong> hold out 5 breeds entirely for few-shot evaluation later. For the remaining 32, do 80/10/10 train/val/test, stratified by breed.</li><li>Build a PyTorch <span class="inline-code">Dataset</span> that returns <span class="inline-code">(image_tensor, breed_id)</span>.</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Make a bar chart or table of images per breed and your split sizes. This goes in Methodology and shows you understand the data.</div></div>`,hints:[{q:"How do I parse breed names from filenames?",a:`<pre>import re\ndef get_breed(filename):\n    name = filename.rsplit('.', 1)[0]\n    breed = re.sub(r'_\\d+$', '', name)\n    return breed.lower()</pre><p>Collect all unique breeds and map them to integer IDs with a dictionary.</p>`},{q:"Which 5 breeds should I hold out?",a:`<p>Pick a mix — 2–3 dog breeds and 1–2 cat breeds, each with at least 50 images. Including one pair of visually similar breeds (e.g., two terrier types) will make your few-shot discussion more interesting. Note your choices for the report.</p>`}]},{label:"Transforms",content:`<p>Training transforms add variety to prevent memorization; eval transforms stay consistent for fair comparison:</p><pre>train_transform = transforms.Compose([\n    transforms.Resize(256),\n    transforms.RandomResizedCrop(224),\n    transforms.RandomHorizontalFlip(),\n    transforms.ColorJitter(0.2, 0.2, 0.2, 0.1),\n    transforms.ToTensor(),\n    transforms.Normalize([0.485,0.456,0.406],\n                         [0.229,0.224,0.225])\n])\n\nval_transform = transforms.Compose([\n    transforms.Resize(256),\n    transforms.CenterCrop(224),\n    transforms.ToTensor(),\n    transforms.Normalize([0.485,0.456,0.406],\n                         [0.229,0.224,0.225])\n])</pre>`,hints:[{q:"Why these specific normalization values?",a:"<p>These are the ImageNet channel means and standard deviations. Your ResNet18 was pretrained on ImageNet, so it expects inputs normalized this way. Mismatching them would hurt embedding quality from the start.</p>"}]},{label:"Model Architecture",content:`<p>Pretrained ResNet18 backbone with a custom projection head that maps to 128-d embeddings:</p><pre>import torch.nn as nn\nfrom torchvision import models\n\nclass EmbeddingNet(nn.Module):\n    def __init__(self, embed_dim=128):\n        super().__init__()\n        backbone = models.resnet18(pretrained=True)\n        self.encoder = nn.Sequential(\n            *list(backbone.children())[:-1]\n        )\n        self.projector = nn.Sequential(\n            nn.Linear(512, 256),\n            nn.BatchNorm1d(256),\n            nn.ReLU(),\n            nn.Linear(256, embed_dim)\n        )\n\n    def forward(self, x):\n        feat = self.encoder(x).squeeze(-1).squeeze(-1)\n        emb = self.projector(feat)\n        return nn.functional.normalize(emb, p=2, dim=1)</pre><p>The <span class="inline-code">normalize</span> at the end maps embeddings onto a unit sphere, making cosine similarity equal to dot product.</p><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Include an architecture summary (table or diagram) showing dimensions: ResNet18 → 512 → 256 → 128. Mention L2 normalization and your rationale for 128-d.</div></div>`,hints:[{q:"Should I freeze the backbone or fine-tune?",a:"<p>Fine-tune with differential learning rates: 1e-4 for the backbone, 1e-3 for the projection head. This lets the pretrained features adapt gently while the head trains aggressively. Fully freezing usually underperforms.</p>"},{q:"Why 128 dimensions?",a:"<p>128 is a good default for ~7k images. 64 can lose information; 256 works but slows retrieval. If you have time, try multiple and compare — that makes strong bonus analysis material.</p>"}]},{label:"Training Loop",content:`<p>The key components:</p><ul><li><strong>Loss:</strong> <span class="inline-code">TripletMarginLoss(margin=0.2)</span> from <span class="inline-code">pytorch_metric_learning</span></li><li><strong>Miner:</strong> <span class="inline-code">TripletMarginMiner(type_of_triplets="semihard")</span> — selects informative triplets from each batch</li><li><strong>Sampler:</strong> <span class="inline-code">MPerClassSampler(labels, m=4, batch_size=64)</span> — ensures enough same-breed pairs per batch</li><li><strong>Optimizer:</strong> Adam with differential LR</li><li><strong>Scheduler:</strong> CosineAnnealingLR, 30 epochs</li><li>Save the best checkpoint by validation loss</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report — essential figure:</strong> Plot <strong>training loss</strong> and <strong>validation loss</strong> per epoch on the same chart. This is your most important training diagnostic. If val loss rises while train loss drops, that's overfitting — discuss it in your analysis section.</div></div>`,hints:[{q:"What does MPerClassSampler do?",a:"<p>It ensures each mini-batch has exactly <em>m</em> images per class. With m=4 and batch_size=64, you get 16 classes × 4 images. Without this, random sampling might produce batches with zero positive pairs, leaving the miner nothing to work with.</p>"},{q:'What does "semihard" mining mean?',a:"<p>A semihard negative is farther from the anchor than the positive, but still within the margin. It's challenging enough to learn from, but not so extreme that it destabilizes training. Pure hard negatives can cause instability in early epochs.</p>"},{q:"Show me the full training loop",a:`<pre>from pytorch_metric_learning import losses, miners, samplers\n\nloss_fn = losses.TripletMarginLoss(margin=0.2)\nminer = miners.TripletMarginMiner(\n    margin=0.2, type_of_triplets="semihard"\n)\nsampler = samplers.MPerClassSampler(\n    train_labels, m=4, batch_size=64\n)\ntrain_loader = DataLoader(\n    train_dataset, batch_size=64, sampler=sampler\n)\noptimizer = torch.optim.Adam([\n    {'params': model.encoder.parameters(), 'lr': 1e-4},\n    {'params': model.projector.parameters(), 'lr': 1e-3}\n])\nscheduler = torch.optim.lr_scheduler.CosineAnnealingLR(\n    optimizer, T_max=30\n)\n\ntrain_losses, val_losses = [], []\nfor epoch in range(30):\n    model.train()\n    epoch_loss = 0\n    for images, labels in train_loader:\n        embeddings = model(images.cuda())\n        hard_pairs = miner(embeddings, labels.cuda())\n        loss = loss_fn(embeddings, labels.cuda(), hard_pairs)\n        optimizer.zero_grad()\n        loss.backward()\n        optimizer.step()\n        epoch_loss += loss.item()\n    scheduler.step()\n    train_losses.append(epoch_loss / len(train_loader))\n    # ... run validation, append to val_losses\n    # ... save checkpoint if best val loss</pre>`}]}],checks:["Dataset class loads images and returns (tensor, label)","Train/val/test split created (5 breeds held out)","EmbeddingNet outputs L2-normalized 128-d vectors","Training loop runs with triplet loss + mining","Training & validation loss curves saved"]},{id:"p2",num:"02",title:"Verification Task",subtitle:"Can the model tell if two images are the same breed?",pts:"10 pts (shared)",sections:[{label:"Embed & Generate Pairs",content:`<p>First, embed your entire test set once and cache it — you'll reuse these embeddings across Phases 3, 4, and 5:</p><pre>model.eval()\nall_embs, all_labels = [], []\nwith torch.no_grad():\n    for imgs, labs in test_loader:\n        embs = model(imgs.cuda()).cpu().numpy()\n        all_embs.append(embs)\n        all_labels.extend(labs.numpy())\nembeddings = np.vstack(all_embs)\nlabels = np.array(all_labels)\nnp.save('test_embeddings.npy', embeddings)\nnp.save('test_labels.npy', labels)</pre><p>Then generate ~5,000 positive pairs (same breed) and ~5,000 negative pairs (different breeds).</p>`,hints:[{q:"Pair generation code?",a:`<pre>import itertools, random\n\ndef generate_pairs(labels, n=5000):\n    label_to_idx = {}\n    for i, l in enumerate(labels):\n        label_to_idx.setdefault(l, []).append(i)\n\n    pos = []\n    for l, idxs in label_to_idx.items():\n        for a, b in itertools.combinations(idxs, 2):\n            pos.append((a, b))\n    pos = random.sample(pos, min(n, len(pos)))\n\n    neg = []\n    all_labs = list(label_to_idx.keys())\n    while len(neg) < n:\n        l1, l2 = random.sample(all_labs, 2)\n        a = random.choice(label_to_idx[l1])\n        b = random.choice(label_to_idx[l2])\n        neg.append((a, b))\n    return pos, neg</pre>`}]},{label:"ROC-AUC & EER",content:`<p>Compute cosine similarity for each pair, then evaluate:</p><ul><li><strong>ROC-AUC:</strong> overall separation quality between same vs. different breed pairs</li><li><strong>EER (Equal Error Rate):</strong> the threshold where false accepts = false rejects — lower is better</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> (1) The <strong>ROC curve</strong> with AUC annotated, and (2) the <strong>EER value</strong>. These go in Results under "Verification". Include a line interpreting the numbers, e.g., "AUC of X.XX indicates strong discrimination between same- and different-breed pairs."</div></div>`,hints:[{q:"How do I compute EER?",a:`<pre>from sklearn.metrics import roc_curve, roc_auc_score\nimport numpy as np\n\nfpr, tpr, thresholds = roc_curve(pair_labels, similarities)\nauc = roc_auc_score(pair_labels, similarities)\n\nfnr = 1 - tpr\neer_idx = np.nanargmin(np.abs(fpr - fnr))\neer = fpr[eer_idx]\nprint(f"AUC: {auc:.4f}, EER: {eer:.4f}")</pre>`},{q:"ROC curve plotting code?",a:`<pre>import matplotlib.pyplot as plt\n\nfig, ax = plt.subplots(figsize=(6, 5))\nax.plot(fpr, tpr, linewidth=2, color='#c4622a')\nax.plot([0,1], [0,1], '--', color='#ccc')\nax.scatter([fpr[eer_idx]], [tpr[eer_idx]],\n           color='#d44', s=60, zorder=5,\n           label=f'EER = {eer:.3f}')\nax.set_xlabel('False Positive Rate')\nax.set_ylabel('True Positive Rate')\nax.set_title(f'Verification ROC (AUC = {auc:.3f})')\nax.legend()\nplt.tight_layout()\nplt.savefig('roc_curve.png', dpi=150)</pre>`}]}],checks:["Test-set embeddings cached as numpy arrays","Positive & negative pairs generated","ROC-AUC computed and ROC curve saved","EER computed and reported"]},{id:"p3",num:"03",title:"Retrieval Task",subtitle:"Given a pet photo, find the most similar ones",pts:"(shared 10 pts)",sections:[{label:"Build Index & Search",content:`<p>Index your test embeddings and retrieve nearest neighbors. Since embeddings are L2-normalized, inner product equals cosine similarity:</p><pre>import faiss\n\ndim = 128\nindex = faiss.IndexFlatIP(dim)\nindex.add(embeddings.astype('float32'))\n\n# Top-6 (first result is the query itself)\nD, I = index.search(embeddings.astype('float32'), 6)\n# I[:, 1:] → top-5 actual neighbors</pre>`,hints:[{q:"Can I use sklearn instead of FAISS?",a:`<pre>from sklearn.neighbors import NearestNeighbors\n\nnn = NearestNeighbors(n_neighbors=6, metric='cosine')\nnn.fit(embeddings)\ndistances, indices = nn.kneighbors(embeddings)\n# indices[:, 1:] for top-5 excluding self</pre><p>Fine for this dataset size. FAISS is faster at scale but sklearn is simpler.</p>`}]},{label:"Precision & Recall",content:`<p>For each query, check how many retrieved images share the correct breed:</p><pre>def precision_at_k(query_label, retrieved_labels, k):\n    return np.mean(retrieved_labels[:k] == query_label)\n\ndef recall_at_k(query_label, retrieved_labels, all_labels, k):\n    total_relevant = np.sum(all_labels == query_label) - 1\n    found = np.sum(retrieved_labels[:k] == query_label)\n    return found / max(total_relevant, 1)\n\nfor k in [1, 5]:\n    p = np.mean([precision_at_k(labels[i], labels[I[i,1:]], k)\n                 for i in range(len(labels))])\n    r = np.mean([recall_at_k(labels[i], labels[I[i,1:]], labels, k)\n                 for i in range(len(labels))])\n    print(f"P@{k}: {p:.4f}  R@{k}: {r:.4f}")</pre><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Present P@1, P@5, R@1, R@5 in a clean table. These are among the most concrete measures of embedding quality.</div></div>`},{label:"Qualitative Examples",content:`<p>Show visual grids of query → retrieved images. Pick <strong>2 successes</strong> and <strong>1–2 failures</strong>. The failures are often more interesting to analyse.</p><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> These grids go in Results. Use green/red borders for correct/incorrect. In Discussion, explain <em>why</em> the failures happened — are the confused breeds visually similar?</div></div>`,hints:[{q:"Grid plotting code?",a:`<pre>fig, axes = plt.subplots(1, 6, figsize=(18, 3))\naxes[0].set_title('QUERY', fontweight='bold', fontsize=10)\naxes[0].imshow(load_img(query_idx))\nfor j in range(5):\n    r_idx = I[query_idx, j+1]\n    axes[j+1].imshow(load_img(r_idx))\n    correct = labels[r_idx] == labels[query_idx]\n    color = '#4a9e4a' if correct else '#c44'\n    for spine in axes[j+1].spines.values():\n        spine.set_edgecolor(color)\n        spine.set_linewidth(3)\n    axes[j+1].set_title(\n        breed_names[labels[r_idx]],\n        color=color, fontsize=9\n    )\nfor ax in axes: ax.axis('off')\nplt.tight_layout()\nplt.savefig('retrieval_grid.png', dpi=150)</pre>`}]}],checks:["FAISS or sklearn index built","P@1, P@5, R@1, R@5 computed","Retrieval grids saved (successes + failures)"]},{id:"p4",num:"04",title:"Few-Shot Classification",subtitle:"Test on breeds the model has never seen",pts:"~5 pts",sections:[{label:"Protocol",content:`<p>Use the 5 breeds held out in Phase 1. The model has never trained on these, so this tests whether embeddings generalise to truly unseen classes.</p><ul><li><strong>5-way 1-shot:</strong> 1 example per breed, classify queries by nearest embedding</li><li><strong>5-way 5-shot:</strong> 5 examples per breed, represent each class by its centroid</li><li>Run <strong>100 episodes</strong> with random support/query splits for stable results</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Report <strong>mean accuracy ± std</strong> for 1-shot and 5-shot. A bar chart comparing both against random baseline (20%) works well. Discuss whether the gap between 1-shot and 5-shot tells you anything about embedding quality.</div></div>`,hints:[{q:"Full episode loop code?",a:`<pre>def run_episodes(embeddings, labels, n_way=5,\n                 k_shot=1, n_episodes=100, n_query=15):\n    accs = []\n    classes = np.unique(labels)\n    for _ in range(n_episodes):\n        chosen = np.random.choice(classes, n_way, replace=False)\n        support_embs, query_embs = [], []\n        support_y, query_y = [], []\n\n        for i, c in enumerate(chosen):\n            idxs = np.where(labels == c)[0]\n            pick = np.random.choice(\n                idxs, k_shot + n_query, replace=False\n            )\n            support_embs.append(embeddings[pick[:k_shot]])\n            query_embs.append(embeddings[pick[k_shot:]])\n            support_y += [i] * k_shot\n            query_y += [i] * n_query\n\n        prototypes = np.array([\n            np.mean(s, axis=0) for s in support_embs\n        ])\n        prototypes /= np.linalg.norm(\n            prototypes, axis=1, keepdims=True\n        )\n        queries = np.vstack(query_embs)\n        sims = queries @ prototypes.T\n        preds = np.argmax(sims, axis=1)\n        accs.append(np.mean(preds == np.array(query_y)))\n\n    return np.mean(accs), np.std(accs)\n\nacc1, std1 = run_episodes(emb, lab, k_shot=1)\nacc5, std5 = run_episodes(emb, lab, k_shot=5)\nprint(f"1-shot: {acc1:.3f} ± {std1:.3f}")\nprint(f"5-shot: {acc5:.3f} ± {std5:.3f}")</pre>`}]}],checks:["5-way 1-shot accuracy (100 episodes)","5-way 5-shot accuracy (100 episodes)","Compared against random baseline (20%)"]},{id:"p5",num:"05",title:"Embedding Visualization",subtitle:"Visualise the structure your model learned",pts:"10 pts",sections:[{label:"Dimensionality Reduction",content:`<p>Reduce 128-d embeddings to 2D using UMAP (generally produces cleaner results than t-SNE):</p><pre>import umap\n\nreducer = umap.UMAP(n_neighbors=15, min_dist=0.1,\n                     metric='cosine', random_state=42)\nemb_2d = reducer.fit_transform(embeddings)</pre>`,hints:[{q:"t-SNE alternative?",a:`<pre>from sklearn.manifold import TSNE\n\ntsne = TSNE(n_components=2, perplexity=30,\n            random_state=42, n_iter=1000)\nemb_2d = tsne.fit_transform(embeddings)</pre><p>Works fine. Main trade-off: t-SNE doesn't preserve global structure as well — clusters may end up at arbitrary relative positions. Local clustering still looks good though.</p>`}]},{label:"Scatter Plot",content:`<p>With 32+ breeds, colour management matters. Consider making two versions:</p><ul><li>A <strong>full view</strong> with all breeds</li><li>A <strong>zoomed view</strong> of 4–5 visually similar breeds to show fine-grained separation</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report — centerpiece figure:</strong> The full scatter goes in Results. The zoomed version is great Discussion material: "Even among visually similar terrier breeds, the model learns distinct clusters…"</div></div>`,hints:[{q:"Full plotting code?",a:`<pre>import matplotlib.pyplot as plt\nimport numpy as np\n\nfig, ax = plt.subplots(figsize=(12, 10))\nunique = np.unique(labels)\ncmap = plt.cm.get_cmap('tab20', len(unique))\n\nfor i, l in enumerate(unique):\n    mask = labels == l\n    ax.scatter(emb_2d[mask, 0], emb_2d[mask, 1],\n               c=[cmap(i % 20)], s=10, alpha=0.7,\n               label=breed_names[l])\n\nax.legend(fontsize=6, ncol=3, loc='center left',\n          bbox_to_anchor=(1, 0.5), markerscale=2.5)\nax.set_title('Embedding Space (UMAP)', fontsize=14,\n             fontweight='bold')\nax.set_xticks([]); ax.set_yticks([])\nplt.tight_layout()\nplt.savefig('umap_full.png', dpi=200,\n            bbox_inches='tight')</pre>`}]},{label:"Quantitative Backing",content:`<p>The rubric wants "quantitative support" for an Excellent rating. Silhouette score is a clean single-number measure of cluster quality:</p><pre>from sklearn.metrics import silhouette_score\n\nsil = silhouette_score(embeddings, labels, metric='cosine')\nprint(f"Silhouette Score: {sil:.4f}")\n# > 0.1 = some structure\n# > 0.3 = good clustering\n# > 0.5 = strong separation</pre><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Mention the silhouette score alongside your UMAP plot: "The embedding space shows clear breed-level clustering (silhouette = X.XX), with overlap between visually similar breeds such as [examples]."</div></div>`}],checks:["UMAP (or t-SNE) projection computed","Full scatter plot saved with legend","Silhouette score computed"]},{id:"p6",num:"06",title:"Analysis & Report",subtitle:"Tie it all together — this is where marks are won or lost",pts:"12.5 pts",sections:[{label:"Performance Analysis (7.5 pts)",content:`<p>The rubric rewards <em>"insightful discussion on training, results, overfitting, etc."</em> — here's what to cover:</p><ul><li><strong>Training dynamics:</strong> Convergence behaviour, overfitting signs, effect of LR schedule</li><li><strong>Loss function:</strong> Why Triplet Loss? What does the margin control? Any sensitivity experiments?</li><li><strong>Failure analysis:</strong> Which breeds are most confused? Show specific retrieval errors with visual examples.</li><li><strong>Connecting metrics:</strong> Do silhouette score, UMAP structure, and retrieval numbers tell a consistent story?</li><li><strong>Limitations:</strong> Dataset size, class imbalance, domain specificity, generalisation to unseen breeds</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>High-impact figure:</strong> Find the <strong>top-5 most confused breed pairs</strong> from retrieval errors and display them side by side. This is exactly the kind of analysis the rubric rewards for Excellent.</div></div>`},{label:"Report Structure (5 pts)",content:`<p>4–6 page PDF with this structure:</p><ul><li><strong>1. Introduction</strong> (0.5 page) — problem statement, why metric learning</li><li><strong>2. Methodology</strong> (1 page) — architecture, loss, training setup, data splits</li><li><strong>3. Results</strong> (1.5–2 pages) — subsection per task with tables and figures</li><li><strong>4. Discussion</strong> (1 page) — failure cases, insights, what you'd try next</li><li><strong>5. Conclusion</strong> (0.25 page) — summary</li></ul><p>Name it <span class="inline-code">Your Name - Report.pdf</span></p><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Figures checklist:</strong> (1) Class distribution, (2) Loss curves, (3) ROC curve, (4) Retrieval grids, (5) Few-shot accuracy chart, (6) UMAP scatter, (7) Confused-breed examples. Seven figures across 4–6 pages — well-paced.</div></div>`}],checks:["Training curves analysed (convergence, overfitting)","Failure cases identified with visual examples","Report written (4–6 pages, all sections)"]},{id:"p7",num:"★",title:"Bonus Options",subtitle:"Only tackle once the core work is solid",pts:"+5 pts",sections:[{label:"Pick 1–2 (max total remains 50)",content:`<ul><li><strong>Hard negative mining:</strong> Switch miner to <span class="inline-code">type="hard"</span>, retrain, compare metrics in a table. Fastest bonus option.</li><li><strong>Compare loss functions:</strong> Train with TripletMarginLoss, ContrastiveLoss, and ArcFaceLoss. Same setup otherwise. High effort but impressive.</li><li><strong>Grad-CAM:</strong> Visualise which image regions the backbone focuses on. Great for discussion.</li><li><strong>Gradio demo:</strong> Upload a photo → see top-5 most similar pets. Tangible and fun to present.</li></ul><div class="report-cue"><span class="rc-icon">📊</span><div><strong>Save for report:</strong> Add a "Bonus" subsection in Results or Discussion. Even partial results show initiative and can recover marks elsewhere.</div></div>`,hints:[{q:"Quick Grad-CAM snippet?",a:`<pre>from torchcam.methods import GradCAM\nfrom torchcam.utils import overlay_mask\nfrom torchvision.transforms.functional import to_pil_image\n\ncam = GradCAM(model.encoder, target_layer='7')\nout = model(img_tensor.unsqueeze(0).cuda())\nactivation = cam(0, out)\noverlay = overlay_mask(\n    to_pil_image(img_tensor),\n    to_pil_image(activation[0].squeeze(), mode='F'),\n    alpha=0.5\n)</pre>`},{q:"Comparison table template?",a:`<pre>import pandas as pd\n\nresults = {\n    'Loss': ['Triplet', 'Contrastive', 'ArcFace'],\n    'AUC': [0.94, 0.91, 0.96],\n    'EER': [0.08, 0.11, 0.06],\n    'P@5': [0.82, 0.78, 0.87],\n    '1-shot': [0.65, 0.58, 0.71],\n}\ndf = pd.DataFrame(results)\nprint(df.to_markdown(index=False))</pre>`}]}],checks:["At least one bonus option attempted","Results compared against baseline"]}];
+
+const mainEl=document.getElementById('main');
+const navEl=document.getElementById('navItems');
+const celebration=document.getElementById('celebration');
+
+PHASES.forEach((phase,pi)=>{
+  const nav=document.createElement('div');
+  nav.className='nav-item';nav.dataset.phase=phase.id;
+  nav.innerHTML=`<div class="dot">✓</div><span>${phase.title}</span><span class="nav-pts">${phase.pts}</span>`;
+  nav.onclick=()=>document.getElementById(phase.id).scrollIntoView({behavior:'smooth'});
+  navEl.appendChild(nav);
+
+  let bodyHTML='';
+  phase.sections.forEach(sec=>{
+    bodyHTML+=`<div class="section-label">${sec.label}</div>${sec.content}`;
+    if(sec.hints) sec.hints.forEach(h=>{
+      bodyHTML+=`<div class="hint-block"><div class="hint-trigger" onclick="this.parentElement.classList.toggle('open')"><span class="icon">▸</span> ${h.q}</div><div class="hint-content">${h.a}</div></div>`;
+    });
+  });
+  bodyHTML+=`<div class="section-label">Checklist</div>`;
+  phase.checks.forEach((ch,ci)=>{
+    bodyHTML+=`<label class="check-row"><input type="checkbox" id="${phase.id}_c${ci}" onchange="updateProgress()"><div class="check-box">✓</div><span class="check-label">${ch}</span></label>`;
+  });
+
+  const card=document.createElement('div');
+  card.className='phase'+(pi===0?' open':'');card.id=phase.id;
+  card.innerHTML=`<div class="phase-header" onclick="this.parentElement.classList.toggle('open')"><div class="phase-num">${phase.num}</div><div class="phase-title-wrap"><div class="phase-title">${phase.title}</div><div class="phase-subtitle">${phase.subtitle}</div></div><div class="phase-pts">${phase.pts}</div><div class="phase-toggle">▾</div></div><div class="phase-body">${bodyHTML}</div>`;
+  mainEl.insertBefore(card,celebration);
+});
+
+const totalChecks=document.querySelectorAll('.check-row input').length;
+function updateProgress(){
+  const checked=document.querySelectorAll('.check-row input:checked').length;
+  document.getElementById('progressBar').style.width=`${(checked/totalChecks)*100}%`;
+  document.getElementById('progressText').textContent=`${checked} / ${totalChecks} done`;
+  PHASES.forEach(p=>{
+    const boxes=document.querySelectorAll(`#${p.id} .check-row input`);
+    const allDone=boxes.length>0&&[...boxes].every(c=>c.checked);
+    document.querySelector(`.nav-item[data-phase="${p.id}"]`).classList.toggle('done',allDone);
+    document.getElementById(p.id).classList.toggle('completed',allDone);
+  });
+  celebration.classList.toggle('show',checked===totalChecks);
+  try{localStorage.setItem('ml_guide_v3',JSON.stringify([...document.querySelectorAll('.check-row input')].map(c=>c.checked)));}catch(e){}
+}
+try{const s=JSON.parse(localStorage.getItem('ml_guide_v3'));if(s){const inputs=document.querySelectorAll('.check-row input');s.forEach((v,i)=>{if(inputs[i])inputs[i].checked=v;});updateProgress();}}catch(e){}
+</script>
+</body>
+</html>

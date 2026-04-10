@@ -1,3 +1,7 @@
+# folders and files to ignore in git repositories for Python projects
+data/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
